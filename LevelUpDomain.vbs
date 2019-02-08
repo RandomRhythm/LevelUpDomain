@@ -9,17 +9,20 @@ Dim dictTLD: set dictTLD = CreateObject("Scripting.Dictionary")
 Dim dictSLD: set dictSLD = CreateObject("Scripting.Dictionary")
 'http://data.iana.org/TLD/tlds-alpha-by-domain.txt
 Dim dictPrev: set DictPrev = CreateObject("scripting.Dictionary")
+Dim SecondLevelDict: Set SecondLevelDict = CreateObject("Scripting.Dictionary")
+Dim ThirdLevelDict: Set ThirdLevelDict = CreateObject("Scripting.Dictionary")
 Dim objFSO: Set objFSO = CreateObject("Scripting.FileSystemObject")
 Dim inputFile
 
 inputFile = SelectFile()
-
+msgbox "Select output directory"
 strOutDir = fnShellBrowseForFolderVB
 CurrentDirectory = GetFilePath(wscript.ScriptFullName)
 
 AddTLDtoDict 'populate top level domain dict
 AddSLDtoDict 'populate second level domain dict
-
+LoadSecondDNS 'Load second level DNS
+LoadThirdDNS 'Load third level DNS
 if objFSO.fileexists(inputFile) then
   Set objFile = objFSO.OpenTextFile(inputFile)
   Do While Not objFile.AtEndOfStream
@@ -37,18 +40,28 @@ if objFSO.fileexists(inputFile) then
             end if
           end if
           for x = ubound(arrayLevelDomain) to (ubound(arrayLevelDomain) - intDomainDepth) step -1
+
             if stroutDomain = "" then
               stroutDomain = arrayLevelDomain(x)
+            elseif ubound(arrayLevelDomain) > 2 and ThirdLevelDict.exists(arrayLevelDomain(x - 1) & "." & arrayLevelDomain(x) & "." & stroutDomain) then 'known third level domain
+              stroutDomain = arrayLevelDomain(x - 2) & "." & arrayLevelDomain(x - 1) & "."  & arrayLevelDomain(x) & "." & stroutDomain
+              msgbox "four level: " & stroutDomain
+              exit for 'confirmed 4 level domain           
+            elseif ubound(arrayLevelDomain) > 1 and SecondLevelDict.exists(arrayLevelDomain(x) & "." & stroutDomain) then 'known second level domain
+              stroutDomain = arrayLevelDomain(x - 1) & "." & arrayLevelDomain(x) & "." & stroutDomain
+              exit for 'confirmed 3 level domain
+              msgbox "third level: " & stroutDomain
             else
               stroutDomain = arrayLevelDomain(x) & "." & stroutDomain
             end if
           next
-
+			
+				
             if dictPrev.exists(stroutDomain) = False then
               dictPrev.add stroutDomain, 0
               logdata strOutDir & "\LevelUP_Domains.txt", stroutDomain, False
               logdata strOutDir & "\Domain_Sample.txt", strData, False
-            else
+            else 'prevalence if SLD
               dictPrev.item(stroutDomain) = dictPrev.item(stroutDomain) + 1
             end if
         else 'not domain 
@@ -515,3 +528,34 @@ function fnShellBrowseForFolderVB()
         set objFolder = nothing
     set objShell = nothing
 end function
+
+
+
+Sub LoadSecondDNS()'load list from http://george.surbl.org/two-level-tlds
+if objFSO.fileexists(CurrentDirectory & "\two-level-tlds.txt") then
+  Set objFile = objFSO.OpenTextFile(CurrentDirectory & "\two-level-tlds.txt")
+  Do While Not objFile.AtEndOfStream
+    if not objFile.AtEndOfStream then 'read file
+        On Error Resume Next
+        strData = objFile.ReadLine 
+        on error goto 0
+          SecondLevelDict.add strData, 1
+    end if
+  loop
+end if
+end sub
+
+
+Sub LoadThirdDNS() 'loads list from http://www.surbl.org/static/three-level-tlds
+if objFSO.fileexists(CurrentDirectory & "\three-level-tlds.txt") then
+  Set objFile = objFSO.OpenTextFile(CurrentDirectory & "\three-level-tlds.txt")
+  Do While Not objFile.AtEndOfStream
+    if not objFile.AtEndOfStream then 'read file
+        On Error Resume Next
+        strData = objFile.ReadLine 
+        on error goto 0
+          ThirdLevelDict.add strData, 1
+    end if
+  loop
+end if
+end sub
