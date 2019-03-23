@@ -6,6 +6,7 @@ Const ForAppending = 8
 Const ForReading = 1
 
 Dim dictTLD: set dictTLD = CreateObject("Scripting.Dictionary")
+Dim dictAllTLD: set dictAllTLD = CreateObject("Scripting.Dictionary")
 Dim dictSLD: set dictSLD = CreateObject("Scripting.Dictionary")
 'http://data.iana.org/TLD/tlds-alpha-by-domain.txt
 Dim dictPrev: set DictPrev = CreateObject("scripting.Dictionary")
@@ -13,6 +14,14 @@ Dim SecondLevelDict: Set SecondLevelDict = CreateObject("Scripting.Dictionary")
 Dim ThirdLevelDict: Set ThirdLevelDict = CreateObject("Scripting.Dictionary")
 Dim objFSO: Set objFSO = CreateObject("Scripting.FileSystemObject")
 Dim inputFile
+Dim boolNext
+Dim boolInvalid
+CurrentDirectory = GetFilePath(wscript.ScriptFullName)
+
+'Check and save known TLD list
+if objFSO.fileexists(CurrentDirectory &"\tld.txt") = false then
+  Dload_List "http://data.iana.org/TLD/tlds-alpha-by-domain.txt", CurrentDirectory & "\tld.txt"
+end if
 
 inputFile = SelectFile()
 msgbox "Select output directory"
@@ -23,12 +32,14 @@ AddTLDtoDict 'populate top level domain dict
 AddSLDtoDict 'populate second level domain dict
 LoadSecondDNS 'Load second level DNS
 LoadThirdDNS 'Load third level DNS
+LoadAllTLD 'Load IANA list of TLDs
 if objFSO.fileexists(inputFile) then
   Set objFile = objFSO.OpenTextFile(inputFile)
   Do While Not objFile.AtEndOfStream
     if not objFile.AtEndOfStream then 'read file
         On Error Resume Next
         strData = objFile.ReadLine
+        on error goto 0
         strData = lcase(strData) 'force lowercase
         stroutDomain = ""
         intDomainDepth = 1 'grab top two domains
@@ -39,25 +50,42 @@ if objFSO.fileexists(inputFile) then
               intDomainDepth = intDomainDepth + 1 'grab top 3 domains
             end if
           end if
+          boolInvalid = invalidChars(strData)
           for x = ubound(arrayLevelDomain) to (ubound(arrayLevelDomain) - intDomainDepth) step -1
-
+            boolNext = False
             if stroutDomain = "" then
               stroutDomain = arrayLevelDomain(x)
-            elseif ubound(arrayLevelDomain) > 2 and ThirdLevelDict.exists(arrayLevelDomain(x - 1) & "." & arrayLevelDomain(x) & "." & stroutDomain) then 'known third level domain
-              stroutDomain = arrayLevelDomain(x - 2) & "." & arrayLevelDomain(x - 1) & "."  & arrayLevelDomain(x) & "." & stroutDomain
-              msgbox "four level: " & stroutDomain
-              exit for 'confirmed 4 level domain           
-            elseif ubound(arrayLevelDomain) > 1 and SecondLevelDict.exists(arrayLevelDomain(x) & "." & stroutDomain) then 'known second level domain
-              stroutDomain = arrayLevelDomain(x - 1) & "." & arrayLevelDomain(x) & "." & stroutDomain
-              exit for 'confirmed 3 level domain
-              msgbox "third level: " & stroutDomain
-            else
+              
+              if dictAllTLD.exists(stroutDomain) = false then
+                logdata strOutDir & "\Invalid_Domain_IP.txt", strData, False
+                boolInvalid = True
+                exit for
+              end if
+              boolNext = True
+            end if
+            if ubound(arrayLevelDomain) > 2 and boolNext = false then
+              if ThirdLevelDict.exists(arrayLevelDomain(x - 1) & "." & arrayLevelDomain(x) & "." & stroutDomain) then 'known third level domain
+                stroutDomain = arrayLevelDomain(x - 2) & "." & arrayLevelDomain(x - 1) & "."  & arrayLevelDomain(x) & "." & stroutDomain
+                'msgbox "four level: " & stroutDomain
+                exit for 'confirmed 4 level domain     
+              end if
+            end if
+            if ubound(arrayLevelDomain) > 1 and boolNext = false then
+              if SecondLevelDict.exists(arrayLevelDomain(x) & "." & stroutDomain) then 'known second level domain
+                stroutDomain = arrayLevelDomain(x - 1) & "." & arrayLevelDomain(x) & "." & stroutDomain
+                'msgbox "third level: " & stroutDomain
+                exit for 'confirmed 3 level domain
+              end if
+            end if
+            if boolNext = false then
               stroutDomain = arrayLevelDomain(x) & "." & stroutDomain
             end if
           next
 			
 				
-            if dictPrev.exists(stroutDomain) = False then
+            if boolInvalid = True then
+              'don't record any invalid domains
+            elseif dictPrev.exists(stroutDomain) = False then
               dictPrev.add stroutDomain, 0
               logdata strOutDir & "\LevelUP_Domains.txt", stroutDomain, False
               logdata strOutDir & "\Domain_Sample.txt", strData, False
@@ -546,6 +574,21 @@ end if
 end sub
 
 
+
+Sub LoadAllTLD() 'loads list from http://data.iana.org/TLD/tlds-alpha-by-domain.txt
+if objFSO.fileexists(CurrentDirectory & "\tld.txt") then
+  Set objFile = objFSO.OpenTextFile(CurrentDirectory & "\tld.txt")
+  Do While Not objFile.AtEndOfStream
+    if not objFile.AtEndOfStream then 'read file
+        On Error Resume Next
+        strData = objFile.ReadLine 
+        on error goto 0
+          dictAllTLD.add strData, 1
+    end if
+  loop
+end if
+end sub
+
 Sub LoadThirdDNS() 'loads list from http://www.surbl.org/static/three-level-tlds
 if objFSO.fileexists(CurrentDirectory & "\three-level-tlds.txt") then
   Set objFile = objFSO.OpenTextFile(CurrentDirectory & "\three-level-tlds.txt")
@@ -559,3 +602,51 @@ if objFSO.fileexists(CurrentDirectory & "\three-level-tlds.txt") then
   loop
 end if
 end sub
+
+Function Dload_List(strURLDownload,strDownloadName)
+Set objHTTP = CreateObject("MSXML2.ServerXMLHTTP")
+
+Dim strReturnInfo
+
+  objHTTP.open "GET", strURLDownload, False
+
+on error resume next
+  objHTTP.send 
+  if err.number <> 0 then
+    logdata CurrentDirectory & "\Error.log", Date & " " & Time & " " & strURLDownload & " File download failed with HTTP error. - " & err.description,False 
+    exit function 
+  end if
+on error goto 0  
+strReturnInfo = False
+if instr(objHTTP.responseText,"AFAMILYCOMPANY") then
+  tmpOutput = lcase(objHTTP.responseText)
+  tmpOutput = replace(tmpOutput, vblf, vbcrlf)
+  LogData strDownloadName,tmpOutput, false
+  strReturnInfo = True
+end if
+
+Dload_DDNS = strReturnInfo
+Set objHTTP = Nothing
+end Function
+
+Function GetFilePath (ByVal FilePathName)
+found = False
+Z = 1
+
+Do While found = False and Z < Len((FilePathName))
+ Z = Z + 1
+         If InStr(Right((FilePathName), Z), "\") <> 0 And found = False Then
+          mytempdata = Left(FilePathName, Len(FilePathName) - Z)      
+             GetFilePath = mytempdata
+             found = True
+        End If      
+Loop
+end Function
+
+Function invalidChars(strDomainTest)
+DIm BoolReturnValue: BoolReturnValue = False
+  if instr(strDomainTest, "/") > 0 then BoolReturnValue = True
+
+invalidChars = BoolReturnValue
+end function
+
