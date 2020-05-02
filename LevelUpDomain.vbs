@@ -5,10 +5,9 @@ Const forwriting = 2
 Const ForAppending = 8
 Const ForReading = 1
 
-Dim dictTLD: set dictTLD = CreateObject("Scripting.Dictionary")
+Dim dictTLD: set dictTLD = CreateObject("Scripting.Dictionary")'http://data.iana.org/TLD/tlds-alpha-by-domain.txt
 Dim dictAllTLD: set dictAllTLD = CreateObject("Scripting.Dictionary")
 Dim dictSLD: set dictSLD = CreateObject("Scripting.Dictionary")
-'http://data.iana.org/TLD/tlds-alpha-by-domain.txt
 Dim dictPrev: set DictPrev = CreateObject("scripting.Dictionary")
 Dim SecondLevelDict: Set SecondLevelDict = CreateObject("Scripting.Dictionary")
 Dim ThirdLevelDict: Set ThirdLevelDict = CreateObject("Scripting.Dictionary")
@@ -41,63 +40,18 @@ if objFSO.fileexists(inputFile) then
         strData = objFile.ReadLine
         on error goto 0
         strData = lcase(strData) 'force lowercase
-        stroutDomain = ""
-        intDomainDepth = 1 'grab top two domains
-        if instr(strData, ".") > 0 and isIPaddress(strData) = False then 'has dot and is not IP address
-          arrayLevelDomain = split(strData, ".")
-          if dictTLD.exists("." & arrayLevelDomain(ubound(arrayLevelDomain))) then 'Country Code TLD
-            if dictSLD.exists(arrayLevelDomain(ubound(arrayLevelDomain) -1)) then 'check second level domain
-              intDomainDepth = intDomainDepth + 1 'grab top 3 domains
-            end if
-          end if
-          boolInvalid = invalidChars(strData)
-          for x = ubound(arrayLevelDomain) to (ubound(arrayLevelDomain) - intDomainDepth) step -1
-            boolNext = False
-            if stroutDomain = "" then
-              stroutDomain = arrayLevelDomain(x)
-              
-              if dictAllTLD.exists(stroutDomain) = false then
-                logdata strOutDir & "\Invalid_Domain_IP.txt", strData, False
-                boolInvalid = True
-                exit for
-              end if
-              boolNext = True
-            end if
-            if ubound(arrayLevelDomain) > 2 and boolNext = false then
-              if ThirdLevelDict.exists(arrayLevelDomain(x - 1) & "." & arrayLevelDomain(x) & "." & stroutDomain) then 'known third level domain
-                stroutDomain = arrayLevelDomain(x - 2) & "." & arrayLevelDomain(x - 1) & "."  & arrayLevelDomain(x) & "." & stroutDomain
-                'msgbox "four level: " & stroutDomain
-                exit for 'confirmed 4 level domain     
-              end if
-            end if
-            if ubound(arrayLevelDomain) > 1 and boolNext = false then
-              if SecondLevelDict.exists(arrayLevelDomain(x) & "." & stroutDomain) then 'known second level domain
-                stroutDomain = arrayLevelDomain(x - 1) & "." & arrayLevelDomain(x) & "." & stroutDomain
-                'msgbox "third level: " & stroutDomain
-                exit for 'confirmed 3 level domain
-              end if
-            end if
-            if boolNext = false then
-              stroutDomain = arrayLevelDomain(x) & "." & stroutDomain
-            end if
-          next
-			
-				
-            if boolInvalid = True then
-              'don't record any invalid domains
-            elseif dictPrev.exists(stroutDomain) = False then
-              dictPrev.add stroutDomain, 0
-              logdata strOutDir & "\LevelUP_Domains.txt", stroutDomain, False
-              logdata strOutDir & "\Domain_Sample.txt", strData, False
-            else 'prevalence if SLD
-              dictPrev.item(stroutDomain) = dictPrev.item(stroutDomain) + 1
-            end if
-        else 'not domain 
-          if isIPaddress(strData) = False then   
-            logdata strOutDir & "\Invalid_Domain_IP.txt", strData, False
-          else
-            logdata strOutDir & "\IP_Addresses.txt", strData, False
-          end if
+        stroutDomain =  LevelUp(strData)
+        if isIPaddress(strData) = True then   
+          logdata strOutDir & "\IP_Addresses.txt", strData, False
+        elseif boolInvalid = True then
+          'don't record any invalid domains
+          logdata strOutDir & "\Invalid_Domain_IP.txt", strData, False
+        elseif dictPrev.exists(stroutDomain) = False then
+          dictPrev.add stroutDomain, 0
+          logdata strOutDir & "\LevelUP_Domains.txt", stroutDomain, False
+          logdata strOutDir & "\Domain_Sample.txt", strData, False
+        else 'prevalence if SLD
+          dictPrev.item(stroutDomain) = dictPrev.item(stroutDomain) + 1
         end if
 
         on error goto 0
@@ -112,8 +66,59 @@ next
 
 msgbox "Done"
 
-function LogData(TextFileName, TextToWrite,EchoOn)
 
+
+
+Function LevelUp(strDomainAllLevels)
+intDomainDepth = 1 'grab top two domains
+stroutDomain = ""
+if instr(strDomainAllLevels, ".") > 0 and isIPaddress(strDomainAllLevels) = False then 'has dot and is not IP address
+  arrayLevelDomain = split(strDomainAllLevels, ".")
+  if dictTLD.exists("." & arrayLevelDomain(ubound(arrayLevelDomain))) then 'Country Code TLD
+    if dictSLD.exists(arrayLevelDomain(ubound(arrayLevelDomain) -1)) then 'check second level domain
+      intDomainDepth = intDomainDepth + 1 'grab top 3 domains
+    end if
+  end if
+  boolInvalid = invalidChars(strDomainAllLevels)
+  for x = ubound(arrayLevelDomain) to (ubound(arrayLevelDomain) - intDomainDepth) step -1
+    boolNext = False
+    if stroutDomain = "" then
+      stroutDomain = arrayLevelDomain(x)   
+      if dictAllTLD.exists(stroutDomain) = false then
+        boolInvalid = True
+        exit for
+      end if
+      boolNext = True
+    end if
+    if ubound(arrayLevelDomain) > 2 and boolNext = false then
+      if ThirdLevelDict.exists(arrayLevelDomain(x - 1) & "." & arrayLevelDomain(x) & "." & stroutDomain) then 'known third level domain
+        stroutDomain = arrayLevelDomain(x - 2) & "." & arrayLevelDomain(x - 1) & "."  & arrayLevelDomain(x) & "." & stroutDomain
+        'msgbox "four level: " & stroutDomain
+        exit for 'confirmed 4 level domain     
+      end if
+    end if
+    if ubound(arrayLevelDomain) > 1 and boolNext = false then
+      if SecondLevelDict.exists(arrayLevelDomain(x) & "." & stroutDomain) then 'known second level domain
+        stroutDomain = arrayLevelDomain(x - 1) & "." & arrayLevelDomain(x) & "." & stroutDomain
+        'msgbox "third level: " & stroutDomain
+        exit for 'confirmed 3 level domain
+      end if
+    end if
+    if boolNext = false then
+      stroutDomain = arrayLevelDomain(x) & "." & stroutDomain
+    end if
+  next
+else 'not domain 
+  stroutDomain = strDomainAllLevels
+end if
+
+LevelUp = stroutDomain
+end function
+
+
+
+
+function LogData(TextFileName, TextToWrite,EchoOn)
 Set fsoLogData = CreateObject("Scripting.FileSystemObject")
 if TextFileName = "" then
   msgbox "No file path passed to LogData"
@@ -571,6 +576,7 @@ if objFSO.fileexists(CurrentDirectory & "\two-level-tlds.txt") then
     end if
   loop
 end if
+SecondLevelDict.add "surbl.org", 1 'needed to run test.surbl.org
 end sub
 
 
