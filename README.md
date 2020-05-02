@@ -1,5 +1,5 @@
 ### Level Up Domain
-#####Takes a list of domain names and creates a sampling list by only outputting one subdomain for each primary domain.
+##### Takes a list of domain names and creates a sampling list by only outputting one subdomain for each primary domain.
 
 This script will parse a provided list of domain names to perform the following:
 * Remove invalid domains
