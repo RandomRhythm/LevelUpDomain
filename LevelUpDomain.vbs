@@ -108,7 +108,8 @@ if instr(strDomainAllLevels, ".") > 0 and isIPaddress(strDomainAllLevels) = Fals
       stroutDomain = arrayLevelDomain(x) & "." & stroutDomain
     end if
   next
-else 'not domain 
+else 'not domain
+  If instr(strDomainAllLevels,".") = 0 then boolInvalid = True
   stroutDomain = strDomainAllLevels
 end if
 
