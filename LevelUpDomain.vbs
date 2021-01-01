@@ -4,7 +4,8 @@
 Const forwriting = 2
 Const ForAppending = 8
 Const ForReading = 1
-
+Const TristateTrue = -1
+Const TristateFalse = 0
 Dim dictTLD: set dictTLD = CreateObject("Scripting.Dictionary")'http://data.iana.org/TLD/tlds-alpha-by-domain.txt
 Dim dictAllTLD: set dictAllTLD = CreateObject("Scripting.Dictionary")
 Dim dictSLD: set dictSLD = CreateObject("Scripting.Dictionary")
@@ -15,6 +16,9 @@ Dim objFSO: Set objFSO = CreateObject("Scripting.FileSystemObject")
 Dim inputFile
 Dim boolNext
 Dim boolInvalid
+Dim boolUnicode
+
+boolUnicode = True
 CurrentDirectory = GetFilePath(wscript.ScriptFullName)
 
 'Check and save known TLD list
@@ -32,8 +36,16 @@ AddSLDtoDict 'populate second level domain dict
 LoadSecondDNS 'Load second level DNS
 LoadThirdDNS 'Load third level DNS
 LoadAllTLD 'Load IANA list of TLDs
+
+
+  if boolUnicode = True then
+    ANSIorUnicode = TristateTrue
+  else
+    ANSIorUnicode = TristateFalse
+  end if
+
 if objFSO.fileexists(inputFile) then
-  Set objFile = objFSO.OpenTextFile(inputFile)
+  Set objFile = objFSO.OpenTextFile(inputFile, ForReading, false, ANSIorUnicode)
   Do While Not objFile.AtEndOfStream
     if not objFile.AtEndOfStream then 'read file
         On Error Resume Next
