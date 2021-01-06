@@ -16,9 +16,12 @@ Dim objFSO: Set objFSO = CreateObject("Scripting.FileSystemObject")
 Dim inputFile
 Dim boolNext
 Dim boolInvalid
+Dim boolRemoveQuotes 'CSV lists may have quotes
 Dim boolUnicode
+Dim ANSIorUnicode
 
 boolUnicode = True
+boolRemoveQuotes = True
 CurrentDirectory = GetFilePath(wscript.ScriptFullName)
 
 'Check and save known TLD list
@@ -51,6 +54,7 @@ if objFSO.fileexists(inputFile) then
         On Error Resume Next
         strData = objFile.ReadLine
         on error goto 0
+        if boolRemoveQuotes = True then strData = replace(strData, chr(34), "")
         strData = lcase(strData) 'force lowercase
         stroutDomain =  LevelUp(strData)
         if isIPaddress(strData) = True then   
@@ -141,7 +145,7 @@ if EchoOn = True then wscript.echo TextToWrite
   If fsoLogData.fileexists(TextFileName) = False Then
       'Creates a replacement text file 
       on error resume next
-      fsoLogData.CreateTextFile TextFileName, True
+      fsoLogData.CreateTextFile TextFileName, True, ANSIorUnicode
       if err.number <> 0 and err.number <> 53 then 
         logdata CurrentDirectory & "\VT_Error.log", Date & " " & Time & " Error logging to " & TextFileName & " - " & err.description,False 
         objShellComplete.popup err.number & " " & err.description & vbcrlf & TextFileName,,"Logging error", 30
@@ -152,27 +156,16 @@ if EchoOn = True then wscript.echo TextToWrite
 if TextFileName <> "" then
 
   on error resume next
-  Set WriteTextFile = fsoLogData.OpenTextFile(TextFileName,ForAppending, False)
+  Set WriteTextFile = fsoLogData.OpenTextFile(TextFileName,ForAppending, False, ANSIorUnicode)
   WriteTextFile.WriteLine TextToWrite
   WriteTextFile.Close
   if err.number <> 0 then 
     on error goto 0
     
-  Dim objStream
-  Set objStream = CreateObject("ADODB.Stream")
-  objStream.CharSet = "utf-16"
-  objStream.Open
-  objStream.WriteText TextToWrite
-  on error resume next
-  objStream.SaveToFile TextFileName, 2
-  if err.number <> 0 then msgbox err.number & " - " & err.message & " Problem writing to " & TextFileName
-  if err.number <> 0 then 
-    objShellComplete.popup "problem writting text: " & TextToWrite, 30
     logdata CurrentDirectory & "\VT_Error.log", Date & " " & Time & " problem writting text: " & TextToWrite,False 
   end if
-  on error goto 0
-  Set objStream = nothing
-  end if
+
+
 end if
 Set fsoLogData = Nothing
 End Function
