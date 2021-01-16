@@ -19,9 +19,11 @@ Dim boolInvalid
 Dim boolRemoveQuotes 'CSV lists may have quotes
 Dim boolUnicode
 Dim ANSIorUnicode
+Dim boolVeboseOutput
 
 boolUnicode = True
 boolRemoveQuotes = True
+boolVeboseOutput = True
 CurrentDirectory = GetFilePath(wscript.ScriptFullName)
 
 'Check and save known TLD list
@@ -65,6 +67,7 @@ if objFSO.fileexists(inputFile) then
         elseif dictPrev.exists(stroutDomain) = False then
           dictPrev.add stroutDomain, 0
           logdata strOutDir & "\LevelUP_Domains.txt", stroutDomain, False
+          if boolVeboseOutput = True then logdata strOutDir & "\LevelUP_table.txt", strData & "," & stroutDomain, False
           logdata strOutDir & "\Domain_Sample.txt", strData, False
         else 'prevalence if SLD
           dictPrev.item(stroutDomain) = dictPrev.item(stroutDomain) + 1
