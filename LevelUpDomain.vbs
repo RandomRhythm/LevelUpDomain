@@ -21,7 +21,7 @@ Dim boolUnicode
 Dim ANSIorUnicode
 Dim boolVeboseOutput
 
-boolUnicode = True
+boolUnicode = True 'UTF-16 LE
 boolRemoveQuotes = True
 boolVeboseOutput = True
 CurrentDirectory = GetFilePath(wscript.ScriptFullName)
