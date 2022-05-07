@@ -32,6 +32,7 @@ if objFSO.fileexists(CurrentDirectory &"\tld.txt") = false then
   Dload_List "http://data.iana.org/TLD/tlds-alpha-by-domain.txt", CurrentDirectory & "\tld.txt"
 end if
 
+
 inputFile = SelectFile()
 msgbox "Select output directory"
 strOutDir = fnShellBrowseForFolderVB
@@ -41,8 +42,11 @@ AddTLDtoDict 'populate top level domain dict
 AddSLDtoDict 'populate second level domain dict
 LoadSecondDNS 'Load second level DNS
 LoadThirdDNS 'Load third level DNS
-LoadAllTLD 'Load IANA list of TLDs
-
+if objFSO.fileexists(CurrentDirectory &"\tld.txt") = True then
+  LoadAllTLD(CurrentDirectory & "\tld.txt") 'Load IANA list of TLDs
+else 'load old list
+  LoadAllTLD(CurrentDirectory & "\tlds-alpha-by-domain.txt") 'Load IANA list of TLDs
+end if
 
   if boolUnicode = True then
     ANSIorUnicode = TristateTrue
@@ -594,9 +598,9 @@ end sub
 
 
 
-Sub LoadAllTLD() 'loads list from http://data.iana.org/TLD/tlds-alpha-by-domain.txt
-if objFSO.fileexists(CurrentDirectory & "\tld.txt") then
-  Set objFile = objFSO.OpenTextFile(CurrentDirectory & "\tld.txt")
+Sub LoadAllTLD(strPathToTLD) 'loads list from http://data.iana.org/TLD/tlds-alpha-by-domain.txt
+if objFSO.fileexists(strPathToTLD) then
+  Set objFile = objFSO.OpenTextFile(strPathToTLD)
   Do While Not objFile.AtEndOfStream
     if not objFile.AtEndOfStream then 'read file
         On Error Resume Next
