@@ -10,6 +10,7 @@ Dim dictTLD: set dictTLD = CreateObject("Scripting.Dictionary")'http://data.iana
 Dim dictAllTLD: set dictAllTLD = CreateObject("Scripting.Dictionary")
 Dim dictSLD: set dictSLD = CreateObject("Scripting.Dictionary")
 Dim dictPrev: set DictPrev = CreateObject("scripting.Dictionary")
+Dim dictLevelUp: set dictLevelUp = CreateObject("scripting.Dictionary")
 Dim SecondLevelDict: Set SecondLevelDict = CreateObject("Scripting.Dictionary")
 Dim ThirdLevelDict: Set ThirdLevelDict = CreateObject("Scripting.Dictionary")
 Dim objFSO: Set objFSO = CreateObject("Scripting.FileSystemObject")
@@ -68,6 +69,7 @@ if objFSO.fileexists(inputFile) then
           dictPrev.add stroutDomain, 0
           logdata strOutDir & "\LevelUP_Domains.txt", stroutDomain, False
           if boolVeboseOutput = True then logdata strOutDir & "\LevelUP_table.txt", strData & "," & stroutDomain, False
+          dictLevelUp.add stroutDomain, strData
           logdata strOutDir & "\Domain_Sample.txt", strData, False
         else 'prevalence if SLD
           dictPrev.item(stroutDomain) = dictPrev.item(stroutDomain) + 1
@@ -79,7 +81,7 @@ if objFSO.fileexists(inputFile) then
 end if
 
 for each domain in dictPrev
-  logdata strOutDir & "\DomainPrev.csv", domain & "," & dictPrev.item(domain), false
+  logdata strOutDir & "\DomainPrev.csv", domain & "," & dictPrev.item(domain)  & "," & dictLevelUp.item(domain), false
 
 next
 
@@ -95,7 +97,9 @@ if instr(strDomainAllLevels, ".") > 0 and isIPaddress(strDomainAllLevels) = Fals
   arrayLevelDomain = split(strDomainAllLevels, ".")
   if dictTLD.exists("." & arrayLevelDomain(ubound(arrayLevelDomain))) then 'Country Code TLD
     if dictSLD.exists(arrayLevelDomain(ubound(arrayLevelDomain) -1)) then 'check second level domain
-      intDomainDepth = intDomainDepth + 1 'grab top 3 domains
+      If ubound(arrayLevelDomain) > intDomainDepth Then 'if we can grab more than two domain levels
+      	intDomainDepth = intDomainDepth + 1 'grab top 3 domains
+      End if        	
     end if
   end if
   boolInvalid = invalidChars(strDomainAllLevels)
