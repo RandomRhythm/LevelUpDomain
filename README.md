@@ -16,3 +16,5 @@ The Level Up Domain script will create the following files:
 * LevelUp_Domains.txt - List of primary domain names.
 * IP_Addresses - IP addresses identified in the list of domains.
 * Invalid_Domain_IP.txt - List of items provided that were an invalid IP address or domain name.
+
+Warning! The input file only supports ANSI and UTF-16 LE encoding. Use notepad Save As dialog or other method to change the encoding beforehand.
